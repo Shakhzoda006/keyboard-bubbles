@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<head>
+    <title>Keyboard Bubble Sketch</title>
+
+    <style>
+        body, html {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #sketch-area {
+            width: 100vw;
+            height: 100vh;
+            background: white;
+            position: relative;
+        }
+
+        .bubble {
+            position: absolute;
+            background: rgba(155, 214, 218, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        @keyframes pop-anim {
+            from { transform: translate(-50%, -50%); }
+            to { transform: translate(-50%, -50%); }
+        }
+
+        .pop-vid {
+            position: absolute;
+            animation: pop-anim 0.2s ease-out;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="sketch-area"></div>
+
+    <script>
+        const sketchArea = document.getElementById('sketch-area');
+
+        const popSounds = ['pop1.mp3', 'pop2.mp3', 'pop3.mp3', 'pop4.mp3', 'pop5.mp3'];
+
+        const audioPool = [];
+        popSounds.forEach(file => {
+            for (let i = 0; i < 3; i++) audioPool.push(new Audio(file));
+        });
+
+        let soundNum = 0;
+        function playPopSound() {
+            const audio = audioPool[soundNum % audioPool.length];
+            audio.currentTime = 0;
+            audio.play().catch(err => console.warn("sound err:", err));
+            soundNum++;
+        }
+
+        const keyRows = [
+            "`1234567890-=",
+            "QWERTYUIOP[]",
+            "ASDFGHJKL;'",
+            "ZXCVBNM,./"
+        ];
+
+        function findKeySpot(key) {
+            let spot = null;
+            keyRows.forEach((row, rowNum) => {
+                let col = row.indexOf(key);
+                if (col === -1) col = row.indexOf(key.toUpperCase());
+                if (col !== -1) {
+                    const x = (col + 0.5) / row.length * 100;
+                    const y = (rowNum + 0.5) / keyRows.length * 100;
+                    spot = { x, y };
+                }
+            });
+            return spot;
+        }
+
+        const liveBubbles = {};
+
+        window.addEventListener('keydown', e => {
+            if (liveBubbles[e.key] || e.repeat) return;
+
+            const spot = findKeySpot(e.key);
+            if (!spot) return;
+
+            const b = document.createElement('img');
+            b.src = 'bubble-image.jpg';
+            b.className = 'bubble';
+            sketchArea.appendChild(b);
+
+            let size = 10;
+            b.style.width = `${size}px`;
+            b.style.height = `${size}px`;
+            b.style.left = `${spot.x}%`;
+            b.style.top = `${spot.y}%`;
+
+            const growLoop = setInterval(() => {
+                size += 10;
+                b.style.width = `${size}px`;
+                b.style.height = `${size}px`;
+            }, 20);
+
+            liveBubbles[e.key] = { el: b, timer: growLoop };
+        });
+
+        window.addEventListener('keyup', e => {
+            const bData = liveBubbles[e.key];
+            if (!bData) return;
+
+            clearInterval(bData.timer);
+
+            const popDelay = 400;
+            const soundDelay = Math.max(0, popDelay - 300);
+
+            setTimeout(playPopSound, soundDelay);
+
+            setTimeout(() => {
+                const b = bData.el;
+                const s = b.offsetWidth;
+                const l = b.style.left;
+                const t = b.style.top;
+
+                const vid = document.createElement('video');
+                vid.src = 'pop.mp4';
+                vid.className = 'pop-vid';
+                vid.width = s;
+                vid.height = s;
+                vid.style.left = l;
+                vid.style.top = t;
+                vid.autoplay = true;
+                vid.muted = true;
+
+                sketchArea.appendChild(vid);
+                b.remove();
+
+                vid.addEventListener('ended', () => vid.remove());
+            }, popDelay);
+
+            delete liveBubbles[e.key];
+        });
+    </script>
+</body>
+</html>
